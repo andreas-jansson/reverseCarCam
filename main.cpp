@@ -12,12 +12,12 @@
 #include <iostream>
 #include <map>
 #include <vector>
-#include <netinet/in.h>
 #include "webcamStream.h"
 #include "graphix/graphix.h"
 #include "jpegConversion/jpegConversion.h"
 #include "circularImageBuffer/circularImageBuffer.h"
-#include "OBD2/obd2.h"
+#include "socketListner/socketListner.h"
+#include "canDataHandler/canDataHandler.h"
 
 
 Drawing *Drawing::instance{nullptr};
@@ -49,6 +49,8 @@ void mirror_image(std::uint16_t* a_buffer, int width, int height);
 [[noreturn]] void t_enquqeImages(void *arg);
 
 [[noreturn]] void t_pollCircularBuffer(void *arg);
+
+
 
 // Assuming RGB565 pixel structure
 struct RGB565Pixel {
@@ -111,29 +113,15 @@ int main() {
     auto prevFrame = std::chrono::high_resolution_clock::now();
     auto now = std::chrono::high_resolution_clock::now();
 
-
-
-    const char* address = "192.168.0.10"; // IP address of the Vgate iCar V2 device
-    int port = 35000; // Port number used by the Vgate iCar V2 device
-    std::string command = "010C\r"; // Command to request vehicle speed in OBD-II
-    std::thread t1_obd2Sender(sendUdpMessage, address, port, command);
-    std::thread t1_obd2Listner(listenForUdpMessages, nullptr);
-    std::thread t1_startServer(startServer, nullptr);
-
-
+   std::thread t1_socketServer(t_socketServer, nullptr);
+   CanDataHandler *dataHandler = CanDataHandler::GetInstance();
 
     while (true) {
-
-        //while (circleBuf->dequeueProcessedImg(displayBuf) == -1){
-        //    //printf("waiting for rgb565...\n");
-        //    std::this_thread::sleep_for(5ms);
-        //}
 
         if (xioctl(fd, VIDIOC_DQBUF, &queryBuffer) < 0) {
             perror("Dequeue Buffer");
             break;
         }
-
 
         YUV422toRGB565(static_cast<uint8_t *>(buffers[0].start), reinterpret_cast<uint16_t *>(displayBuf),
                        width * height);
@@ -144,50 +132,13 @@ int main() {
             perror("Queue Buffer");
             break;
         }
-
-        drawing->drawParkinglinesNew(curve, 0xee1f/*0xeea2*/, 20, displayBuf);
+        drawing->drawParkinglinesNew(dataHandler->get_wheel_position(), 0xee1f/*0xeea2*/, 30, displayBuf);
         drawing->drawString(reinterpret_cast<unsigned char *>(displayBuf), 0x8fd9, 8,width * 0.05, height * 0.9, "GEAR:");
         drawing->drawString(reinterpret_cast<unsigned char *>(displayBuf), 0xf9a0, 8,width * 0.05, height * 0.9, "     R");
         drawing->drawString(reinterpret_cast<unsigned char *>(displayBuf), 0x8fd9, 8,width * 0.05, height * 0.05, "OBD2");
 
         memcpy(fbp, displayBuf, screensize);
 
-        //Fps calculation
-        now = std::chrono::high_resolution_clock::now();
-
-        usTime += std::chrono::duration_cast<std::chrono::microseconds>(now-prevFrame).count();
-
-        prevFrame = now;
-
-        counter++;
-        fpsCounter++;
-
-        //if(counter % 30 == 0){
-        //    printf("frame time: %lu us - %lu ms\n", usTime / 30, (usTime/1000)/30);
-        //    usTime = 0;
-        //}
-
-        //if(std::chrono::duration_cast<std::chrono::seconds>(now-prevSec).count() >= 1){
-        //    prevSec = now;
-        //    printf("fps: %lu\n", fpsCounter);
-        //    fpsCounter = 0;
-        //}
-
-        //simulating rotating steering wheel position for testing lines
-        if (curve <= 200 && !isLeft) {
-            curve += 10;
-            if (curve >= 200)
-                isLeft = true;
-        } else {
-            curve -= 10;
-            if (curve <= -200)
-                isLeft = false;
-        }
-
-       // if (xioctl(fd, VIDIOC_QBUF, &queryBuffer) < 0) {
-       //     perror("Queue Buffer");
-       //     break;
-       // }
     }
 
     display_splashscreen();
@@ -543,44 +494,3 @@ void mirror_image(std::uint16_t* a_buffer, int width, int height) {
 }
 
 
-
-void startServer(void *arg) {
-    int port = 8080;
-    int server_fd, new_socket;
-    struct sockaddr_in address{}, cliaddr{};
-    int opt = 1;
-    int addrlen = sizeof(address);
-    unsigned int len = sizeof(cliaddr);
-
-    // Creating socket file descriptor
-    if ((server_fd = socket(AF_INET, SOCK_STREAM, 0)) == 0) {
-        perror("socket failed");
-        exit(EXIT_FAILURE);
-    }
-
-    // Forcefully attaching socket to the port
-    if (setsockopt(server_fd, SOL_SOCKET, SO_REUSEADDR | SO_REUSEPORT, &opt, sizeof(opt))) {
-        perror("setsockopt");
-        exit(EXIT_FAILURE);
-    }
-    address.sin_family = AF_INET;
-    address.sin_addr.s_addr = INADDR_ANY;
-    address.sin_port = htons(port);
-
-    // Forcefully attaching socket to the port
-    if (bind(server_fd, (struct sockaddr *)&address, sizeof(address))<0) {
-        perror("bind failed");
-        exit(EXIT_FAILURE);
-    }
-    if (listen(server_fd, 3) < 0) {
-        perror("listen");
-        exit(EXIT_FAILURE);
-    }
-    if ((new_socket = accept(server_fd, (struct sockaddr *)&address, (socklen_t*)&addrlen))<0) {
-        perror("accept");
-        exit(EXIT_FAILURE);
-    }
-    int n = recvfrom(new_socket, (char *)buffer, 1024, MSG_WAITALL, (struct sockaddr *) &cliaddr, &len);
-    std::cout<<"recieved "<<n<<" bytes\n";
-    // Use new_socket to receive data and handle/display it using SDL
-}

@@ -26,10 +26,9 @@ void Drawing::init(std::uint32_t a_width, std::uint32_t a_height, std::uint32_t 
 }
 
 std::int64_t Drawing::convertPixelToOffset(std::uint32_t a_x, std::uint32_t a_y) {
-    a_x = a_x * m_bytesPerPixel;
-    //align with rgb format
-    std::int64_t xOffset = (a_y * m_screenWidthBytes + a_x) % m_bytesPerPixel == 0 ? (a_y * m_screenWidthBytes + a_x) : (a_y * m_screenWidthBytes + a_x) + 1;
 
+    //align with rgb format
+    std::int64_t xOffset = (m_screenWidthPixels * a_y + a_x) * m_bytesPerPixel;
     if(xOffset > m_screenSizeBytes)
         return -1;
     return xOffset;
@@ -71,8 +70,8 @@ ParkingXYK Drawing::calculateParkingLinesNew(std::uint32_t a_x0, std::uint32_t a
     parkLine[2] = 0.90;
 
     constexpr int slopeCounterLimit{7};
-    bool* isParkLineFilled = new bool[a_nrOfLines];
-    bool* isParkSlopeFilled = new bool[a_nrOfLines];
+    bool* isParkLineFilled = new bool[a_nrOfLines]{};
+    bool* isParkSlopeFilled = new bool[a_nrOfLines]{};
 
 
     int dx = static_cast<int>(a_x2 - a_x0);
@@ -128,10 +127,10 @@ ParkingXYK Drawing::calculateParkingLinesNew(std::uint32_t a_x0, std::uint32_t a
                 }
                 slopeCounter++;
 
-                //if (parkingXyk.x[line] > m_screenWidthBytes)
-                    //printf("bad x0[%d] value: %d\n",line, parkingXyk.x[line]);
-                //if (parkingXyk.y[line] > m_screenHeightPixels)
-                    //printf("bad y0[%d] value: %d\n",line, parkingXyk.y[line]);
+                if (parkingXyk.x[line] > m_screenWidthBytes)
+                    printf("bad x0[%d] value: %d\n",line, parkingXyk.x[line]);
+                if (parkingXyk.y[line] > m_screenHeightPixels)
+                    printf("bad y0[%d] value: %d\n",line, parkingXyk.y[line]);
             }
         }
     }
@@ -295,18 +294,21 @@ void Drawing::drawCurve(std::uint32_t a_x0, std::uint32_t a_y0, std::uint32_t a_
 void Drawing::drawParkinglinesNew(int a_curveHeight, uint16_t a_color, std::uint32_t a_lineThickness, char* a_buffer) {
 
     int nrOfLines = 3;
-    std::uint32_t midPoint =m_screenWidthPixels / 2;
-    std::uint32_t lineDistance = midPoint / 2;
 
-    std::uint32_t x0_left = midPoint - lineDistance;
-    std::uint32_t x1_left = static_cast<std::uint32_t>((midPoint - lineDistance)*1.2);
-    std::uint32_t y0_left = m_screenHeightPixels;
-    std::uint32_t y1_left = static_cast<std::uint32_t>(m_screenHeightPixels * 0.2);
+    double percentFromEdgeBottom = 0.05;
+    double percentFromEdgeTop = 0.30;
+    double percentFromTopBottom = 0.9;
+    double percentFromTopTop = 0.20;
 
-    std::uint32_t x0_right = midPoint + lineDistance;
-    std::uint32_t x1_right = static_cast<std::uint32_t>((midPoint + lineDistance)*0.8);
-    std::uint32_t y0_right = y0_left;
-    std::uint32_t y1_right = y1_left;
+    std::uint32_t x0_left = m_screenWidthPixels * percentFromEdgeBottom;
+    std::uint32_t x1_left = m_screenWidthPixels * percentFromEdgeTop;
+    std::uint32_t y0_left = m_screenHeightPixels * percentFromTopBottom;
+    std::uint32_t y1_left = m_screenHeightPixels * percentFromTopTop;
+
+    std::uint32_t x0_right = static_cast<std::uint32_t>(m_screenWidthPixels) * (1.0 - percentFromEdgeBottom);
+    std::uint32_t x1_right = m_screenWidthPixels * (1.0 - percentFromEdgeTop);
+    std::uint32_t y0_right = m_screenHeightPixels * percentFromTopBottom;
+    std::uint32_t y1_right = m_screenHeightPixels * percentFromTopTop;
 
     ParkingXYK parkingXykLeft{};
     ParkingXYK parkingXykRight{};
@@ -324,11 +326,8 @@ void Drawing::drawParkinglinesNew(int a_curveHeight, uint16_t a_color, std::uint
     //assert(parkingXykRight.y <= m_screenHeightPixels);
     //assert(parkingXykRight.y <= m_screenHeightPixels);
 
-    //top line
-    //drawLine(x1_left + (a_lineThickness / 2) - (a_curveHeight / 2), y1_left, x1_right + (a_lineThickness / 2) - (a_curveHeight / 2), y1_right, a_color, a_lineThickness, a_buffer);
-
     //red line 0, mid 1 top 2?
-    /*
+
     for(int i=0;i<nrOfLines;i++) {
         double leftK = parkingXykLeft.k[i];
         int leftX = parkingXykLeft.x[i] + (a_lineThickness / 2);
@@ -342,23 +341,25 @@ void Drawing::drawParkinglinesNew(int a_curveHeight, uint16_t a_color, std::uint
         int rightYstart = rightY - (a_lineThickness / 2);
         int rightM = rightY - (rightK * rightX);
 
-        for (int y = 0; y < a_lineThickness; y++) {
+        for (int y = 0; y < (a_lineThickness/2); y++) {
 
             std::uint32_t x0 = (y + leftYStart - leftM) / leftK;
             std::uint32_t x1 = (y + rightYstart - rightM) / rightK;
 
             if(i == nrOfLines-1)
-                drawLine(x0, (y + leftYStart) + 16, x1, (rightY + y), 0xf2e4, 2, a_buffer);
+                drawLine(x0, (y + leftYStart) + 16, x1, (rightY + y), a_color, 2, a_buffer);
             else
                 drawLine(x0, (y + leftYStart), x1, (rightY + y), 0xf2e4, 2, a_buffer);
         }
     }
-    */
+
+
+
 
 
     //mid line
-    //drawLine(parkingXykLeft.x, parkingXykLeft.y, parkingXykRight.x + (a_lineThickness /2), parkingXykRight.y, a_color, a_lineThickness, a_buffer);
-
+    //drawLine(parkingXykLeft.x[0], parkingXykLeft.y[0], parkingXykRight.x[0] + (a_lineThickness /2), parkingXykRight.y[0], a_color, a_lineThickness, a_buffer);
+   // printf("parking: xleft %d yleft %d xright %d yright %d\n", parkingXykLeft.x[0], parkingXykLeft.y[0], parkingXykRight.x[0] + (a_lineThickness /2), parkingXykRight.y[0]);
     drawCurve(x0_left, y0_left, x1_left - (a_curveHeight / 2), y1_right, a_curveHeight, a_color, a_lineThickness, a_buffer);
     drawCurve(x0_right, y0_right, x1_right - (a_curveHeight / 2), y1_right, a_curveHeight, a_color, a_lineThickness, a_buffer);
 }
