@@ -407,7 +407,6 @@ int CirularImageBuffer::getMJPEGTailPos(){
         char* buf = static_cast<char*>(circleBuf->getMJPEGBuffer());
         int head = circleBuf->getMJPEGHeadPos();
         int tail = circleBuf->getMJPEGTailPos();
-
         // Overwrite mjpeg status line
         printf("\x1b[A\rjpeg: ");
         for (int i = 0; i < a_bufferSize; i++) {
@@ -425,6 +424,7 @@ int CirularImageBuffer::getMJPEGTailPos(){
             printf("%c - ", j);
         }
         fflush(stdout);
+
 
         std::this_thread::sleep_for(50ms);
     }

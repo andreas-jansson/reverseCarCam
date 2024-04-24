@@ -13,7 +13,8 @@
 #include <chrono>
 #include <thread>
 
-#define nrOfBuf 1
+#define nrOfBuf 3
+
 
 int fd;
 char* buffer;
@@ -22,7 +23,7 @@ enum v4l2_buf_type type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
 
 
 
-void init_cam(int a_width, int a_height);
+bool init_cam(int a_width, int a_height);
 
 void close_cam();
 
@@ -53,19 +54,19 @@ void close_cam() {
     close(fd);
 }
 
-void init_cam(int a_width, int a_height) {
+bool init_cam(int a_width, int a_height) {
     const char *device = "/dev/video0";
     fd = open(device, O_RDWR);
     if (fd == -1) {
         perror("Opening video device");
-        return;
+        return false;
     }
 
     // Query device capabilities
     struct v4l2_capability capability;
     if (ioctl(fd, VIDIOC_QUERYCAP, &capability) < 0) {
         perror("Querying capabilities");
-        return;
+        return false;
     }
     printf("Driver: %s, Card: %s, Version: %u.%u, Capabilities: %08x\n",
            capability.driver, capability.card, (capability.version >> 16) & 0xFF,
@@ -79,7 +80,7 @@ void init_cam(int a_width, int a_height) {
     imageFormat.fmt.pix.field = V4L2_FIELD_NONE;
     if (ioctl(fd, VIDIOC_S_FMT, &imageFormat) < 0) {
         perror("Setting Pixel Format");
-        return;
+        return false;
     }
 
     struct v4l2_requestbuffers req = {0};
@@ -88,7 +89,7 @@ void init_cam(int a_width, int a_height) {
     req.memory = V4L2_MEMORY_MMAP;
     if (ioctl(fd, VIDIOC_REQBUFS, &req) < 0) {
         perror("Requesting Buffer");
-        return;
+        return false;
     }
 
     buffers = static_cast<Buffers*>(calloc(nrOfBuf, sizeof(*buffers)));
@@ -131,9 +132,10 @@ void init_cam(int a_width, int a_height) {
     // Start streaming
     if (ioctl(fd, VIDIOC_STREAMON, &type) < 0) {
         perror("Starting streaming");
-        return;
+        return false;
     }
     printf("Camera initialized and streaming started.\n");
+    return true;
 }
 
 

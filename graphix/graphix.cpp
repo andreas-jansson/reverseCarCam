@@ -1,9 +1,18 @@
 #include <map>
+#include <cmath>
 #include "graphix.h"
 
 
 int Drawing::m_fontHeight;
 int Drawing::m_charMaxWidth;
+Drawing *Drawing::instance{nullptr};
+std::mutex Drawing::mutex_;
+std::uint32_t Drawing::m_screenWidthBytes{};
+std::uint32_t Drawing::m_screenWidthPixels{};
+std::uint32_t Drawing::m_screenHeightPixels{};
+std::uint32_t Drawing::m_bytesPerPixel{};
+std::uint64_t Drawing::m_screenSizeBytes{};
+
 
  Drawing* Drawing::GetInstance(){
     std::lock_guard<std::mutex> lock(mutex_);
@@ -65,13 +74,16 @@ ParkingXYK Drawing::calculateParkingLinesNew(std::uint32_t a_x0, std::uint32_t a
 
     ParkingXYK parkingXyk{};
     auto* parkLine = new double[a_nrOfLines];
-    parkLine[0] = 0.2;
-    parkLine[1] = 0.5;
+    parkLine[0] = 0.1;
+    parkLine[1] = 0.3;
     parkLine[2] = 0.90;
 
     constexpr int slopeCounterLimit{7};
     bool* isParkLineFilled = new bool[a_nrOfLines]{};
     bool* isParkSlopeFilled = new bool[a_nrOfLines]{};
+
+
+
 
 
     int dx = static_cast<int>(a_x2 - a_x0);
@@ -291,14 +303,14 @@ void Drawing::drawCurve(std::uint32_t a_x0, std::uint32_t a_y0, std::uint32_t a_
     delete[] pixel;
 }
 
-void Drawing::drawParkinglinesNew(int a_curveHeight, uint16_t a_color, std::uint32_t a_lineThickness, char* a_buffer) {
+void Drawing::drawParkinglinesNew(int a_curveHeight, double a_angle, uint16_t a_color, std::uint32_t a_lineThickness, char* a_buffer) {
 
     int nrOfLines = 3;
 
-    double percentFromEdgeBottom = 0.05;
-    double percentFromEdgeTop = 0.30;
+    double percentFromEdgeBottom = 0.20;
+    double percentFromEdgeTop = 0.35;
     double percentFromTopBottom = 0.9;
-    double percentFromTopTop = 0.20;
+    double percentFromTopTop = 0.43;
 
     std::uint32_t x0_left = m_screenWidthPixels * percentFromEdgeBottom;
     std::uint32_t x1_left = m_screenWidthPixels * percentFromEdgeTop;
@@ -312,23 +324,41 @@ void Drawing::drawParkinglinesNew(int a_curveHeight, uint16_t a_color, std::uint
 
     ParkingXYK parkingXykLeft{};
     ParkingXYK parkingXykRight{};
+/*
+    parkingXykLeft = calculateParkingLinesNew(x0_left, y0_left, x1_left - (a_curveHeight / 2), y1_left, a_curveHeight,
+                                              nrOfLines);
+    parkingXykRight = calculateParkingLinesNew(x0_right, y0_right, x1_right - (a_curveHeight / 2), y1_right,
+                                               a_curveHeight, nrOfLines);
 
-    parkingXykLeft = calculateParkingLinesNew(x0_left, y0_left, x1_left - (a_curveHeight / 2), y1_left, a_curveHeight, nrOfLines);
-    parkingXykRight = calculateParkingLinesNew(x0_right, y0_right, x1_right - (a_curveHeight / 2), y1_right, a_curveHeight, nrOfLines);
+*/
 
-    //assert(parkingXykLeft.x <= (m_screenWidthBytes/2));
-    //assert(parkingXykLeft.x <= (m_screenWidthBytes/2));
-    //assert(parkingXykLeft.y <= m_screenHeightPixels);
-    //assert(parkingXykLeft.y <= m_screenHeightPixels);
+    bool isLeft = a_curveHeight < 0 ? true : false;
+    if (!isLeft) {
+        PixelXY x1y1Left = rotate_xy(x0_left, y0_left, x1_left - (a_curveHeight / 2), y1_right, a_angle, isLeft);
+        parkingXykLeft = calculateParkingLinesNew(x0_left, y0_left, x1y1Left.x, x1y1Left.y, a_curveHeight,nrOfLines);
 
-    //assert(parkingXykRight.x <= (m_screenWidthBytes/2));
-    //assert(parkingXykRight.x <= (m_screenWidthBytes/2));
-    //assert(parkingXykRight.y <= m_screenHeightPixels);
-    //assert(parkingXykRight.y <= m_screenHeightPixels);
+        PixelXY x0y0Right = rotate_xy(x0_left, y0_left, x0_right  - (a_curveHeight / 2), y0_right, a_angle, isLeft);
+        PixelXY x1y1Right = rotate_xy(x0_left, y0_left, x1_right - (a_curveHeight / 2), y1_right, a_angle, isLeft);
+        parkingXykRight = calculateParkingLinesNew(x0y0Right.x, x0y0Right.y, x1y1Right.x, x1y1Right.y, a_curveHeight,nrOfLines);
 
-    //red line 0, mid 1 top 2?
+    }
+    else{
 
-    for(int i=0;i<nrOfLines;i++) {
+        PixelXY x0y0Left = rotate_xy(x0_right, y0_right,x0_left - (a_curveHeight / 2), y0_left, a_angle, isLeft);
+        PixelXY x1y1Left = rotate_xy(x0_right, y0_right,x1_left - (a_curveHeight / 2), y1_right, a_angle, isLeft);
+
+
+        PixelXY x1y1Right = rotate_xy(x0_right, y0_right,x1_right - (a_curveHeight / 2), y1_right, a_angle, isLeft);
+
+        parkingXykLeft = calculateParkingLinesNew(x0y0Left.x, x0y0Left.y, x1y1Left.x, x1y1Left.y, a_curveHeight,nrOfLines);
+
+        parkingXykRight = calculateParkingLinesNew(x0_right, y0_right, x1y1Right.x, x1y1Right.y,
+                                                   a_curveHeight, nrOfLines);
+
+    }
+
+
+    for (int i = 0; i < nrOfLines; i++) {
         double leftK = parkingXykLeft.k[i];
         int leftX = parkingXykLeft.x[i] + (a_lineThickness / 2);
         int leftY = parkingXykLeft.y[i];
@@ -347,21 +377,34 @@ void Drawing::drawParkinglinesNew(int a_curveHeight, uint16_t a_color, std::uint
             std::uint32_t x1 = (y + rightYstart - rightM) / rightK;
 
             if(i == nrOfLines-1)
-                drawLine(x0, (y + leftYStart) + 16, x1, (rightY + y), a_color, 2, a_buffer);
-            else
+                drawLine(x0 - 16, (y + leftYStart) + 16, x1, (rightY + y), a_color, 2, a_buffer);
+            else if(i == 0)
                 drawLine(x0, (y + leftYStart), x1, (rightY + y), 0xf2e4, 2, a_buffer);
+            else
+                drawLine(x0, (y + leftYStart), x1, (rightY + y), a_color, 2, a_buffer);
         }
     }
 
 
+     if (!isLeft) {
+        PixelXY x1y1Left = rotate_xy(x0_left, y0_left, x1_left - (a_curveHeight / 2), y1_right, a_angle, isLeft);
+        drawCurve(x0_left, y0_left, x1y1Left.x, x1y1Left.y, a_curveHeight, a_color, a_lineThickness, a_buffer);
 
+        PixelXY x0y0Right = rotate_xy(x0_left, y0_left, x0_right - (a_curveHeight / 2), y0_right, a_angle, isLeft);
+        PixelXY x1y1Right = rotate_xy(x0_left, y0_left, x1_right - (a_curveHeight / 2), y1_right, a_angle, isLeft);
+        drawCurve(x0y0Right.x, x0y0Right.y, x1y1Right.x, x1y1Right.y, a_curveHeight, a_color, a_lineThickness, a_buffer);
+        }
+    else{
+        PixelXY x0y0Left = rotate_xy(x0_right, y0_right, x0_left - (a_curveHeight / 2), y0_left, a_angle, isLeft);
+        PixelXY x1y1Left = rotate_xy(x0_right, y0_right, x1_left - (a_curveHeight / 2), y1_left, a_angle, isLeft);
+        drawCurve(x0y0Left.x, x0y0Left.y, x1y1Left.x, x1y1Left.y, a_curveHeight, a_color, a_lineThickness, a_buffer);
 
+        PixelXY x1y1Right = rotate_xy(x0_right, y0_right,x1_right - (a_curveHeight / 2), y1_right,a_angle, isLeft);
+        drawCurve(x0_right, y0_right, x1y1Right.x, x1y1Right.y, a_curveHeight, a_color, a_lineThickness, a_buffer);
+    }
 
-    //mid line
-    //drawLine(parkingXykLeft.x[0], parkingXykLeft.y[0], parkingXykRight.x[0] + (a_lineThickness /2), parkingXykRight.y[0], a_color, a_lineThickness, a_buffer);
-   // printf("parking: xleft %d yleft %d xright %d yright %d\n", parkingXykLeft.x[0], parkingXykLeft.y[0], parkingXykRight.x[0] + (a_lineThickness /2), parkingXykRight.y[0]);
-    drawCurve(x0_left, y0_left, x1_left - (a_curveHeight / 2), y1_right, a_curveHeight, a_color, a_lineThickness, a_buffer);
-    drawCurve(x0_right, y0_right, x1_right - (a_curveHeight / 2), y1_right, a_curveHeight, a_color, a_lineThickness, a_buffer);
+    //drawCurve(x0_left, y0_left, x1_left - (a_curveHeight / 2), y1_right,p a_curveHeight, a_color, a_lineThickness, a_buffer);
+    //drawCurve(x0_right, y0_right, x1_right - (a_curveHeight / 2), y1_right, a_curveHeight, a_color, a_lineThickness, a_buffer);
 }
 
 void Drawing::draw4PointShape(std::uint32_t a_x0, std::uint32_t a_y0, std::uint32_t a_x1, std::uint32_t a_y1, std::uint32_t a_x2, std::uint32_t a_y2, std::uint32_t a_x3, std::uint32_t a_y3, uint16_t a_color, std::uint32_t a_lineThickness, char* a_buffer){
@@ -479,4 +522,19 @@ void Drawing::drawChar(unsigned char* a_buffer, std::uint32_t a_color, int a_siz
             j++;
         }
     }
+}
+
+PixelXY Drawing::rotate_xy(int a_x0, int a_y0, int a_x1, int a_y1, double a_radians, bool a_isLeft){
+
+    struct PixelXY pixel{};
+
+    if(a_isLeft){
+        pixel.x = a_x0 + (a_x1 - a_x0) * cos(a_radians) - (a_y1 - a_y0) * sin(a_radians);
+        pixel.y = a_y0 + (a_x1 - a_x0) * sin(a_radians) + (a_y1 - a_y0) * cos(a_radians);
+    }
+    else{
+        pixel.x = a_x0 +(a_x1 - a_x0) * cos(a_radians) + (a_y1 - a_y0) * sin(a_radians);
+        pixel.y = a_y0 -(a_x1 - a_x0) * sin(a_radians) + (a_y1 - a_y0) * cos(a_radians);
+    }
+    return pixel;
 }

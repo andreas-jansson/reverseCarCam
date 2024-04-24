@@ -8,11 +8,16 @@
 #include <cmath>
 #include <cassert>
 
-
+//values to calculate y = kx + m
 struct ParkingXYK{
     std::uint32_t x[5]{};
     std::uint32_t y[5]{};
     double k[5]{};
+};
+
+struct PixelXY{
+    int x;
+    int y;
 };
 
 
@@ -46,7 +51,7 @@ public:
 
     static Drawing *GetInstance();
 
-    static void init(std::uint32_t a_width, std::uint32_t a_height, std::uint32_t a_bytesPerPixel);
+    void init(std::uint32_t a_width, std::uint32_t a_height, std::uint32_t a_bytesPerPixel);
 
     /**
      * @param a_x x pixel of top left corner, 0 is top left of screen
@@ -81,11 +86,13 @@ public:
 
     ParkingXYK calculateParkingLinesNew(std::uint32_t a_x0, std::uint32_t a_y0, std::uint32_t a_x2, std::uint32_t a_y2, int a_curveHeight, int a_nrOfLines);
 
-    void drawParkinglinesNew(int a_curveHeight, uint16_t a_color, std::uint32_t a_lineThickness, char* a_buffer);
+    void drawParkinglinesNew(int a_curveHeight, double a_angle,uint16_t a_color, std::uint32_t a_lineThickness, char* a_buffer);
 
     void drawString(unsigned char* a_buffer,  std::uint32_t a_color, int a_size, int a_x, int a_y, std::string a_str);
 
     void drawChar(unsigned char* a_buffer,std::uint32_t a_color, int a_size, int a_x, int a_y, char a_char);
+
+    PixelXY rotate_xy(int a_x0, int a_y0, int a_x1, int a_y1, double a_radians, bool a_isLeft);
 
 };
 

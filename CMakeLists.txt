@@ -26,4 +26,4 @@ add_executable(cameraApp main.cpp
 )
 
 set_target_properties(cameraApp PROPERTIES INSTALL_RPATH "/opt/poky/3.1.31/sysroots/aarch64-poky-linux/usr/lib")
-target_link_libraries(cameraApp -ljpeg -lpthread)
+target_link_libraries(cameraApp -ljpeg -lpthread  -lasound)
