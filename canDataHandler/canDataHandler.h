@@ -41,6 +41,8 @@ public:
     gearPosition get_gear_position();
     void set_rpm(int a_rpmB3, int a_rpmB4);
     int get_rpm();
+    void set_speed(int a_speed);
+    int get_speed();
     bool get_connection_status(){return m_canActive;};
     static void configure(int a_maxCanId=9998,
                           int a_minCanId=0,
@@ -64,6 +66,7 @@ private:
     static bool s_printRawCan;
     static int s_printBinaryCanId;
     static int s_rpmValue;
+    static int s_speed;
     static printDataFormat s_printFormat;
     static std::map< std::uint32_t, std::string> s_supportedCanIds;
     static std::map<std::uint32_t, CanMsg> s_canPair;

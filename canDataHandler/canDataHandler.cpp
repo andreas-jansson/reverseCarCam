@@ -15,6 +15,7 @@ int CanDataHandler::s_wheelPosMaxValue;
 int CanDataHandler::s_wheelPosMaxSpan;
 int CanDataHandler::s_printBinaryCanId;
 int CanDataHandler::s_rpmValue;
+int CanDataHandler::s_speed;
 bool CanDataHandler::s_printRawCan;
 printDataFormat CanDataHandler::s_printFormat;
 
@@ -138,6 +139,7 @@ CanDataHandler* CanDataHandler::GetInstance(){
     {
         s_supportedCanIds.emplace(688, "wheelPos");
         s_supportedCanIds.emplace(790, "rpmValue");
+        s_supportedCanIds.emplace(2024, "speed");
         configure();
         instance = new CanDataHandler();
     }
@@ -152,16 +154,19 @@ void CanDataHandler::insert_data(char* a_buffer){
 
     auto it = s_supportedCanIds.find(msg.id);
     if (it != s_supportedCanIds.end()) {
-        if (it->second == "wheelPos") {
+        if (it->second == s_supportedCanIds.at(688)) {
             set_wheel_position(static_cast<int32_t>(msg.data[1]));
         }
-        else if (it->second == "rpmValue") {
+        else if (it->second == s_supportedCanIds.at(790)) {
             set_rpm(static_cast<int32_t>(msg.data[2]), static_cast<int32_t>(msg.data[3]));
         }
+        else if (it->second == s_supportedCanIds.at(2024)) {
+            set_speed(static_cast<int32_t>(msg.data[3]));
+        }
     }
-    print_raw_bits_single_can(msg);
+    //print_raw_bits_single_can(msg);
     //print_raw_bars_single_can(msg);
-    print_raw_can(msg);
+    //print_raw_can(msg);
 
     /*
     if(s_printBinaryCanId != -1){
@@ -217,12 +222,19 @@ void CanDataHandler::set_gear_position(){
 }
 
 void CanDataHandler::set_rpm(int a_rpmB3, int a_rpmB4){
-
-    s_rpmValue = ((a_rpmB4 * 256) + a_rpmB3) / 6.4;
+    s_rpmValue = ((a_rpmB4 * 256) + a_rpmB3) / 4;
 }
 
 int CanDataHandler::get_rpm(){
     return s_rpmValue;
+}
+
+void CanDataHandler::set_speed(int a_speed){
+    s_speed = a_speed;
+}
+
+int CanDataHandler::get_speed(){
+    return s_speed;
 }
 
 std::int32_t CanDataHandler::get_wheel_position(){

@@ -29,8 +29,6 @@ void mirror_image(std::uint16_t *a_buffer, int width, int height);
 bool is_connected_to_wifi();
 std::int32_t wheel_pos_to_curve_height(std::int32_t a_wheelPos);
 double smooth_radian_progression(std::int32_t a_wheelPos);
-void disable_sound();
-
 
 int main() {
 
@@ -40,8 +38,8 @@ int main() {
     char *fbp;
     bool isWifiActive{false};
     bool cameraActive{true};
-    int rpmThreshold = 2000;
-    int secondsToWait = 10;
+    int rpmThreshold = 900;
+    int secondsToWait = 5;
 
 
     if ((fbp = init_screen(width, height, screensize)) == nullptr)
@@ -51,8 +49,8 @@ int main() {
         return 1;
 
     CanDataHandler *dataHandler = CanDataHandler::GetInstance();
-    dataHandler->configure(10000,0,255,40,progressBarFormat, 790
-    );
+    //dataHandler->configure(10000,0,255,40,progressBarFormat, 790
+    //);
 
     Drawing *drawing = Drawing::GetInstance();
     drawing->init(width, height, 2);
@@ -67,7 +65,6 @@ int main() {
     auto now = std::chrono::high_resolution_clock::now();
 
     std::thread t1_socketServer(t_socketServer, nullptr);
-
     while (true) {
 
         now = std::chrono::high_resolution_clock::now();
@@ -77,23 +74,27 @@ int main() {
         }
 
         //determine if the camera system should continue or go to standby
-        if(dataHandler->get_rpm() < rpmThreshold){
+        int rpm = dataHandler->get_rpm();
+        if(rpm < rpmThreshold){
             timeSinceLowRpm = std::chrono::high_resolution_clock::now();
-            if(!cameraActive){
-                if (!init_cam(1920, 1080))
-                    exit(1);
-                else
-                    cameraActive = true;
-            }
+          //  if(!cameraActive){
+          //      if (!init_cam(1920, 1080))
+          //          exit(1);
+          //      else
+          //          cameraActive = true;
+          //  }
+            cameraActive = true;
         }
-        else if(dataHandler->get_rpm() > rpmThreshold && std::chrono::duration_cast<std::chrono::seconds>(timeSinceLowRpm - now).count() > secondsToWait){
+        else if(rpm > rpmThreshold && std::chrono::duration_cast<std::chrono::seconds>(now - timeSinceLowRpm).count() > secondsToWait){
             if(cameraActive){
                 cameraActive = false;
-                close_cam();
-                std::this_thread::sleep_for(5s);
+                //close_cam();
+                display_splashscreen(splashFilePath);
+                rpm = 700;
+                std::this_thread::sleep_for(1s);
             }
             else{
-                std::this_thread::sleep_for(5s);
+                std::this_thread::sleep_for(1s);
             }
             continue;
         }
@@ -126,7 +127,7 @@ int main() {
                                 "GEAR:");
             drawing->drawString(reinterpret_cast<unsigned char*>(displayBuf), 0xf9a0, 8, width * 0.05, height * 0.9,
                                 "     R");
-            drawing->drawString(reinterpret_cast<unsigned char*>(displayBuf), 0xf9a0, 8, width * 0.8, height * 0.9,
+            drawing->drawString(reinterpret_cast<unsigned char*>(displayBuf), 0xf9a0, 8, width * 0.9, height * 0.9,
                                 std::to_string(dataHandler->get_rpm()));
             if(isWifiActive)
                 drawing->drawString(reinterpret_cast<unsigned char *>(displayBuf), 0x8fd9, 8, width * 0.05, height * 0.05,
@@ -340,7 +341,7 @@ void display_splashscreen(std::string a_filePath) {
     munmap(fbp, screensize);
     using namespace std::chrono_literals;
     close(fb_fd);
-    std::this_thread::sleep_for(3s);
+    std::this_thread::sleep_for(2s);
 }
 
 void mirror_image(std::uint16_t *a_buffer, int width, int height) {
@@ -358,10 +359,13 @@ void mirror_image(std::uint16_t *a_buffer, int width, int height) {
 }
 
 bool is_connected_to_wifi() {
-    if (!system("ping -c 1 192.168.1.2 /dev/null 2>&1"))
+    if (!system("ping -c 1 192.168.1.2 /dev/null 2>&1")){
+        printf("online\n");
         return true;
-    else
+    }else{
+        printf("offline\n");
         return false;
+    }
 }
 
 std::int32_t wheel_pos_to_curve_height(std::int32_t a_wheelPos) {
@@ -372,7 +376,7 @@ double smooth_radian_progression(std::int32_t a_wheelPos) {
     static double currentWheelPos{-6666.0};  // Initialized only once
 
     double targetRadian = std::abs(a_wheelPos) * (M_PI / 180);  // Convert degrees to radians, use M_PI for pi
-    double stepSize = abs(currentWheelPos - targetRadian) > 3? 1.0f : 0.02f;
+    double stepSize = abs(currentWheelPos - targetRadian) > 3? 1.0f : 0.01f;
 
     // Check if it's the first call
     if (currentWheelPos == -6666.0) {

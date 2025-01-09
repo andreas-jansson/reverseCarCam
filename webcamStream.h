@@ -44,13 +44,10 @@ static int xioctl(int fh, int request, void *arg) {
 }
 
 void close_cam() {
-
     munmap(buffer, queryBuffer.length);
-
     if (ioctl(fd, VIDIOC_STREAMOFF, &type) < 0) {
         perror("Stop Capture");
     }
-
     close(fd);
 }
 

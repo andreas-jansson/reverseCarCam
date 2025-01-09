@@ -307,10 +307,10 @@ void Drawing::drawParkinglinesNew(int a_curveHeight, double a_angle, uint16_t a_
 
     int nrOfLines = 3;
 
-    double percentFromEdgeBottom = 0.20;
-    double percentFromEdgeTop = 0.35;
+    double percentFromEdgeBottom = 0.25;
+    double percentFromEdgeTop = 0.42;
     double percentFromTopBottom = 0.9;
-    double percentFromTopTop = 0.43;
+    double percentFromTopTop = 0.5;
 
     std::uint32_t x0_left = m_screenWidthPixels * percentFromEdgeBottom;
     std::uint32_t x1_left = m_screenWidthPixels * percentFromEdgeTop;

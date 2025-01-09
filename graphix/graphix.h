@@ -32,6 +32,7 @@ private:
     static std::uint32_t m_bytesPerPixel;
     static std::uint64_t m_screenSizeBytes;
     static int m_fontHeight;
+
     static int m_charMaxWidth;
 
     Drawing() = default;
